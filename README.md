@@ -1,60 +1,109 @@
 # Simple Monitoring Dashboard
 
-A lightweight Linux server monitoring dashboard built with Netdata.
+A lightweight server monitoring project using Netdata to monitor CPU,
+memory, and disk I/O on an Ubuntu VPS.
 
 ## Features
 
-- Real-time CPU monitoring
-- Memory monitoring
-- Disk I/O monitoring
-- Custom CPU alert:
-  - Warning above 80%
-  - Critical above 95%
-- Automated setup and dashboard checks
-- SSH tunnel access for safer remote monitoring
+- Real-time server monitoring with Netdata.
+- CPU, RAM, and disk I/O monitoring.
+- Custom CPU usage alert.
+- Automated setup and dashboard validation scripts.
+- Safe cleanup script for the custom CPU alert.
 
 ## Requirements
 
-- Ubuntu Linux
-- Root or sudo access
-- Internet connection for installation
-- SSH access to the server
+- Ubuntu VPS.
+- SSH access to the server.
+- sudo privileges.
+- curl and Python 3.
+- Netdata dashboard running on port 19999.
 
-## Installation
+## Project Structure
 
-```bash
-sudo bash setup.sh
+```text
+simple-monitoring-dashboard/
+├── setup.sh
+├── test_dashboard.sh
+├── cleanup.sh
+└── README.md
 ```
 
-## Access Dashboard
+## Setup
 
-From your local machine, open an SSH tunnel:
+Run this script on the Ubuntu VPS, not on your local MacBook:
 
 ```bash
-ssh -L 19999:127.0.0.1:19999 roadmap-server
+chmod +x setup.sh test_dashboard.sh cleanup.sh
+./setup.sh
 ```
 
-Keep the tunnel open and visit:
+## Configure CPU Alert
+
+Create the following file on the VPS:
+
+`/etc/netdata/health.d/cpu_usage.conf`
+
+```conf
+alarm: custom_cpu_usage
+    on: system.cpu
+ lookup: average -1m unaligned of user,system,softirq,irq,guest
+ units: %
+ every: 10s
+   warn: $this > 80
+   crit: $this > 95
+ summary: Custom CPU usage alert
+    info: CPU usage is high
+    to: silent
+```
+
+Reload the health configuration:
+
+```bash
+sudo netdatacli reload-health
+```
+
+The alert changes to WARNING above 80% CPU usage and CRITICAL above 95%.
+Actual alert behavior depends on the collected metric and evaluation period.
+
+## Test Dashboard
+
+Run on the VPS:
+
+```bash
+./test_dashboard.sh
+```
+
+The test checks the Netdata API, required charts, and CPU data.
+
+## Access Dashboard Securely
+
+From your local MacBook terminal, open an SSH tunnel:
+
+```bash
+ssh -i ~/.ssh/roadmap_server_key \
+  -p 32200 \
+  -L 19999:127.0.0.1:19999 \
+  root@169.58.223.6
+```
+
+Keep the terminal open and visit:
 
 http://localhost:19999
 
-## Test
-
-Run on the Linux server:
-
-```bash
-sudo bash test_dashboard.sh
-```
-
 ## Cleanup
 
+Run on the VPS:
+
 ```bash
-bash cleanup.sh
+./cleanup.sh
 ```
 
-The cleanup script does not uninstall Netdata or delete monitoring data.
+This removes only the custom CPU alert configuration.
+It does not uninstall Netdata or delete monitoring history.
 
 ## Security
 
-Do not expose Netdata port 19999 directly to the public internet.
-Use an SSH tunnel for remote dashboard access.
+- Prefer SSH tunneling over exposing port 19999 publicly.
+- Keep SSH private keys secure.
+- Review scripts before running them with sudo.
