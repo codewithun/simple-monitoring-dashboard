@@ -13,7 +13,6 @@ echo "[1/3] Checking Netdata API..."
 if ! curl -fsS --max-time 5 \
     "$BASE_URL/api/v1/info" >/dev/null; then
     echo "[FAIL] Netdata API tidak dapat diakses."
-    echo "Pastikan Netdata aktif dan BASE_URL benar."
     exit 1
 fi
 
@@ -21,25 +20,24 @@ echo "[OK] Netdata API merespons."
 
 echo "[2/3] Checking required charts..."
 
-CHARTS="$(curl -fsS --max-time 10 \
-    "$BASE_URL/api/v1/charts")"
-
+curl -fsS --max-time 15 "$BASE_URL/api/v1/charts" |
 python3 -c '
 import json
 import sys
 
-charts = json.loads(sys.argv[1]).get("charts", {})
+charts = json.load(sys.stdin).get("charts", {})
 required = ["system.cpu", "system.ram", "system.io"]
-missing = [name for name in required if name not in charts]
+missing = []
 
 for name in required:
     if name in charts:
         print(f"[OK] {name}")
     else:
         print(f"[FAIL] {name}")
+        missing.append(name)
 
 sys.exit(1 if missing else 0)
-' "$CHARTS"
+'
 
 echo "[3/3] Checking CPU data..."
 
